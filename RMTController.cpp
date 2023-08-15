@@ -5,6 +5,7 @@
 
 #if defined(ESP32) && defined(LEDG_LED_CONTROLLER_USE_LL_RMT) && LEDG_LED_CONTROLLER_USE_LL_RMT == 1
 
+
 /**
  * @brief RMT Controller for LED Gloves
  */
@@ -20,29 +21,30 @@ LEDGlovesRMTController::~LEDGlovesRMTController() {
 }
 
 // Statics
+xSemaphoreHandle LEDGlovesRMTController::__g_rmt_clkstoppoer_locks = NULL;
 bool LEDGlovesRMTController::tx_should_reset_clk_div = false;  // Flag for eventual RMT clock freq update if we changed APB clock before next TX.
 
 /**
  * @brief Locks the writing buffer Mutex to prevent clocking changes or config changeswhile TX-ing
  */
-void IRAM_ATTR LEDGlovesRMTController::takeWritingBufferLock(void) {
+void __always_inline LEDGlovesRMTController::takeWritingBufferLock(void) {
   do {
-  } while (xSemaphoreTake(this->g_rmt_clkstoppoer_locks, portMAX_DELAY) != pdPASS);
+  } while (xSemaphoreTake(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks, portMAX_DELAY) != pdPASS);
 }
 
 /**
  * @brief Releases the writing buffer lock
  */
-void IRAM_ATTR LEDGlovesRMTController::releaseWritingBufferLock(void) {
-  xSemaphoreGive(this->g_rmt_clkstoppoer_locks);
+void __always_inline LEDGlovesRMTController::releaseWritingBufferLock(void) {
+  xSemaphoreGive(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks);
 }
 
 /**
  * @brief Blocks the caller until the RMT is done TX-ing and is available for clock changes, etc
  */
-void IRAM_ATTR LEDGlovesRMTController::blockCallerWhileWritingBuffer(void) {
-  this->takeWritingBufferLock();
-  this->releaseWritingBufferLock();
+void __always_inline LEDGlovesRMTController::blockCallerWhileWritingBuffer(void) {
+  LEDGlovesRMTController::takeWritingBufferLock();
+  LEDGlovesRMTController::releaseWritingBufferLock();
 }
 
 /**
@@ -206,8 +208,9 @@ void IRAM_ATTR LEDGlovesRMTController::apb_change_CB(void* arg, apb_change_ev_t 
 
   // Flag for eventual RMT clock freq update if we changed APB clock
   if (ev_type == APB_BEFORE_CHANGE) {
-    RMTController.blockCallerWhileWritingBuffer();
+    LEDGlovesRMTController::takeWritingBufferLock();
   } else if (ev_type == APB_AFTER_CHANGE) {
+    LEDGlovesRMTController::releaseWritingBufferLock();
     LEDGlovesRMTController::tx_should_reset_clk_div = true;
   }
 }
@@ -236,11 +239,11 @@ bool IRAM_ATTR LEDGlovesRMTController::setup(int pin, CRGB* ledArray, uint16_t l
 
   this->updateRMTClkDiv();  // Init clock divider based on APB frequency
 
-  if (!this->g_rmt_clkstoppoer_locks) {
-    this->g_rmt_clkstoppoer_locks = xSemaphoreCreateMutex();
+  if (!__g_rmt_clkstoppoer_locks) {
+    LEDGlovesRMTController::__g_rmt_clkstoppoer_locks = xSemaphoreCreateMutex();
   }
 
-  if (!this->_cb_setup) addApbChangeCallback(NULL, this->apb_change_CB);  // Add the cb to update the rmt on APB clk chagnes
+  if (!this->_cb_setup) addApbChangeCallback(NULL, LEDGlovesRMTController::apb_change_CB);  // Add the cb to update the rmt on APB clk chagnes
   this->_cb_setup = true;
   return true;
 }
@@ -253,8 +256,8 @@ bool IRAM_ATTR LEDGlovesRMTController::setup(int pin, CRGB* ledArray, uint16_t l
  * @return void
  */
 void IRAM_ATTR LEDGlovesRMTController::end() {
-  this->releaseWritingBufferLock();
-  if (this->_cb_setup) removeApbChangeCallback(NULL, this->apb_change_CB);
+  LEDGlovesRMTController::releaseWritingBufferLock();
+  if (this->_cb_setup) removeApbChangeCallback(NULL, LEDGlovesRMTController::apb_change_CB);
   this->_cb_setup = false;
   rmtDeinit(this->rmt_send);
 }
@@ -354,7 +357,7 @@ void __always_inline LEDGlovesRMTController::copy_pixel_data() {
  * @return void
  */
 void __always_inline LEDGlovesRMTController::tx_pixel_data() {
-  this->takeWritingBufferLock();
+  LEDGlovesRMTController::takeWritingBufferLock();
 
   if (tx_should_reset_clk_div) this->updateRMTClkDiv();  // Change clk if needed
 
@@ -366,7 +369,7 @@ void __always_inline LEDGlovesRMTController::tx_pixel_data() {
     taskYIELD();
   } while (micros() < startMicros + POST_TX_END_DELAY_US);  // Loop and yield for min stable value of settling time
   // Finally allow more writes/clock changes
-  this->releaseWritingBufferLock();
+  LEDGlovesRMTController::releaseWritingBufferLock();
 }
 
 /**
@@ -381,9 +384,9 @@ void IRAM_ATTR LEDGlovesRMTController::show() {
   this->copy_pixel_data();
   this->tx_pixel_data();
 
-  taskYIELD();       // Loop as fast as the driver will allow, but yield for other threads
-  this->delayMs(1);  // Test more aggressive, but still FreeRTOS Tick-based Delays
-                     // this->delayMs(5);  // Test "sloppy" long delays
+  taskYIELD();  // Loop as fast as the driver will allow, but yield for other threads
+  // this->delayMs(1);  // Test more aggressive, but still FreeRTOS Tick-based Delays
+  // this->delayMs(5);  // Test "sloppy" long delays
 }
 
 /**
