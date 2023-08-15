@@ -125,16 +125,16 @@ void setup() {
     6,                  /* Priority of the task. */
     NULL);              /* Task handle. */
 
-  // delay(2000);  // Wait ten seconds as a buffer to enable re-flashing because I'm dumb sometimes
+  delay(5000);  // Wait ten seconds as a buffer to enable re-flashing because I'm dumb sometimes
 
-  // // Make a thead to chagne the clock async from the display loop
-  // xTaskCreate(
-  //     task_test_change_clk_frq, /* Task function. */
-  //     "Clk_changer",            /* String with name of task. */
-  //     1024,                     /* Stack size in bytes. */
-  //     NULL,                     /* Parameter passed as input of the task */
-  //     2,                        /* Priority of the task. */
-  //     NULL);                    /* Task handle. */
+  // Make a thead to chagne the clock async from the display loop
+  xTaskCreate(
+      task_test_change_clk_frq, /* Task function. */
+      "Clk_changer",            /* String with name of task. */
+      1024,                     /* Stack size in bytes. */
+      NULL,                     /* Parameter passed as input of the task */
+      2,                        /* Priority of the task. */
+      NULL);                    /* Task handle. */
 }
 
 void loop() {

@@ -208,10 +208,15 @@ void IRAM_ATTR LEDGlovesRMTController::apb_change_CB(void* arg, apb_change_ev_t 
 
   // Flag for eventual RMT clock freq update if we changed APB clock
   if (ev_type == APB_BEFORE_CHANGE) {
+
+    // Block RMT from writing befoe we change the APB clock potentialy
     LEDGlovesRMTController::takeWritingBufferLock();
   } else if (ev_type == APB_AFTER_CHANGE) {
-    LEDGlovesRMTController::releaseWritingBufferLock();
+    // Set a flag to update any RMT drivers before their next TX
     LEDGlovesRMTController::tx_should_reset_clk_div = true;
+
+    // Allow RMT to write again now that we have changed the APB clock
+    LEDGlovesRMTController::releaseWritingBufferLock();
   }
 }
 
