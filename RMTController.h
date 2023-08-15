@@ -124,6 +124,15 @@ public:
      */
   void IRAM_ATTR setDither(uint8_t ditherMode);  // Mock FastLED interface
 
+  /***
+     * @brief delays the currnt Calling thread by [ms] milliseconds
+     *        and maintains that delay time until changed
+     *
+     * @param ms milliseconds to delay by
+     *
+     */
+  void IRAM_ATTR delayMs(uint32_t ms);
+
 private:
   xSemaphoreHandle g_rmt_colorBuf_locks = NULL;
   rmt_data_t rmt_led_data[NR_OF_ALL_BITS];
@@ -197,15 +206,6 @@ private:
   void __always_inline tx_pixel_data();
 
   /***
-     * @brief delays the currnt Calling thread by [ms] milliseconds
-     *        and maintains that delay time until changed
-     *
-     * @param ms milliseconds to delay by
-     *
-     */
-  void __always_inline delayMs(uint32_t ms);
-
-  /***
      * @brief delays the currnt Calling thread by the current delay time
      */
   void __always_inline delayMs();
@@ -234,7 +234,7 @@ protected:
      * @note Don't call anything like Serial.println() too much from this function, it will crash the ESP32,
      *       since it's called from an ISR, etc
      */
-  static void IRAM_ATTR apb_change_CB(void* arg, apb_change_ev_t ev_type, uint32_t old_apb, uint32_t new_apb);
+  static void /*IRAM_ATTR*/ apb_change_CB(void* arg, apb_change_ev_t ev_type, uint32_t old_apb, uint32_t new_apb);
 };
 
 /**

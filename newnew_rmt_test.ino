@@ -70,8 +70,8 @@ void IRAM_ATTR task_test_led_task(void* params) {
     pixels[1] = color;
 
     RMTController.show();  // NOTE: This is Blocking and has built in yields
-
-    // taskYIELD();  // Loop as fast as the driver will allow, but yield for other threads
+    // portYIELD();
+    RMTController.delayMs(1);
   }
 
   vTaskSuspend(NULL);
@@ -80,20 +80,33 @@ void IRAM_ATTR task_test_led_task(void* params) {
 void IRAM_ATTR task_test_change_clk_frq(void* params) {
   while (1) {
     // Simulate Wifi Loops for a bit
-    for (int i = 0; i < 100; i++) {
-      setCpuFrequencyMhz(80);
-      delay(1);
+    // for (int i = 0; i < 100; i++) {
+    setCpuFrequencyMhz(80);
+    delay(1);
 
-      setCpuFrequencyMhz(80);
-      delay(3);
-
-      setCpuFrequencyMhz(10);
-      delay(70);
+    // Sim actual TX Burst
+    for (int j = 0; j < 160; j++) {
+      delayMicroseconds(460);
     }
 
-    // Simulate USB Plugged IN
-    setCpuFrequencyMhz(160);
-    delay(2000);
+    setCpuFrequencyMhz(80);
+    delay(1);
+
+    // Sim actual Rx->TX Burst during RX-phase
+    for (int k = 0; k < 160; k++) {
+      delayMicroseconds(460);
+    }
+
+    delay(2);
+
+    // Enter MODEM sleep phase
+    setCpuFrequencyMhz(20);
+    delay(80);
+    // }
+
+    // // Simulate USB Plugged IN
+    // setCpuFrequencyMhz(160);
+    // delay(10000);
   }
 
   vTaskSuspend(NULL);
@@ -129,12 +142,12 @@ void setup() {
 
   // Make a thead to chagne the clock async from the display loop
   xTaskCreate(
-      task_test_change_clk_frq, /* Task function. */
-      "Clk_changer",            /* String with name of task. */
-      1024,                     /* Stack size in bytes. */
-      NULL,                     /* Parameter passed as input of the task */
-      2,                        /* Priority of the task. */
-      NULL);                    /* Task handle. */
+    task_test_change_clk_frq, /* Task function. */
+    "Clk_changer",            /* String with name of task. */
+    1024,                     /* Stack size in bytes. */
+    NULL,                     /* Parameter passed as input of the task */
+    5,                        /* Priority of the task. */
+    NULL);                    /* Task handle. */
 }
 
 void loop() {

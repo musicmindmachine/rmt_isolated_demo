@@ -29,7 +29,9 @@ bool LEDGlovesRMTController::tx_should_reset_clk_div = false;  // Flag for event
  */
 void __always_inline LEDGlovesRMTController::takeWritingBufferLock(void) {
   do {
+    taskYIELD();
   } while (xSemaphoreTake(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks, portMAX_DELAY) != pdPASS);
+  // } while (xSemaphoreTakeRecursive(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks, portMAX_DELAY) != pdPASS);
 }
 
 /**
@@ -37,6 +39,7 @@ void __always_inline LEDGlovesRMTController::takeWritingBufferLock(void) {
  */
 void __always_inline LEDGlovesRMTController::releaseWritingBufferLock(void) {
   xSemaphoreGive(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks);
+  // xSemaphoreGiveRecursive(LEDGlovesRMTController::__g_rmt_clkstoppoer_locks);
 }
 
 /**
@@ -199,7 +202,7 @@ void IRAM_ATTR LEDGlovesRMTController::updateRMTClkDiv() {
  * @note Don't call anything like Serial.println() too much from this function, it will crash the ESP32,
  *       since it's called from an ISR, etc
  */
-void IRAM_ATTR LEDGlovesRMTController::apb_change_CB(void* arg, apb_change_ev_t ev_type, uint32_t old_apb, uint32_t new_apb) {
+void /*IRAM_ATTR*/ LEDGlovesRMTController::apb_change_CB(void* arg, apb_change_ev_t ev_type, uint32_t old_apb, uint32_t new_apb) {
   // Serial.println("APB Clock RMT needs update flag set!");
 
   // NOTE: Don't immediately update the tick in the CB,  updateRMTTick()
@@ -246,6 +249,7 @@ bool IRAM_ATTR LEDGlovesRMTController::setup(int pin, CRGB* ledArray, uint16_t l
 
   if (!__g_rmt_clkstoppoer_locks) {
     LEDGlovesRMTController::__g_rmt_clkstoppoer_locks = xSemaphoreCreateMutex();
+    // LEDGlovesRMTController::__g_rmt_clkstoppoer_locks = xSemaphoreCreateRecursiveMutex();
   }
 
   if (!this->_cb_setup) addApbChangeCallback(NULL, LEDGlovesRMTController::apb_change_CB);  // Add the cb to update the rmt on APB clk chagnes
@@ -274,7 +278,7 @@ void IRAM_ATTR LEDGlovesRMTController::end() {
  * @param ms milliseconds to delay by
  *
  */
-void __always_inline LEDGlovesRMTController::delayMs(uint32_t ms) {
+void IRAM_ATTR LEDGlovesRMTController::delayMs(uint32_t ms) {
   __asm__ __volatile__("nop");  // required to prevent compiler from optimizing out the delay
   this->_delayTimeMs = ms;
   this->delayMs();
@@ -285,7 +289,7 @@ void __always_inline LEDGlovesRMTController::delayMs(uint32_t ms) {
  */
 void __always_inline LEDGlovesRMTController::delayMs() {
   // __asm__ __volatile__("nop");    // Removing Asm clean memory
-  uint32_t delay = this->_delayTimeMs / portTICK_PERIOD_MS;  // get the delay time in ticks
+  volatile uint32_t delay = this->_delayTimeMs / portTICK_PERIOD_MS;  // get the delay time in ticks
   delay = delay > 0 ? delay : 1;
 
   // convert above to while loop
@@ -293,14 +297,14 @@ void __always_inline LEDGlovesRMTController::delayMs() {
     __asm__ __volatile__("nop");  // required to prevent compiler from caching delay
 
     // Do the delay and reset
-    if (delay == 1) {
+    // if (delay == 1) {
       // schedule more aggressively for fast delays/last delay
       this->xLastWakeTime = xTaskGetTickCount();
       vTaskDelayUntil(&this->xLastWakeTime, 1);
-    } else {
-      // schedule normally for all other delays
-      vTaskDelay(1);
-    }
+    // } else {
+    //   // schedule normally for all other delays
+    //   vTaskDelay(1);
+    // }
     this->xLastWakeTime = xTaskGetTickCount();
     delay--;
   }
