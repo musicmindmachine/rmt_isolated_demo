@@ -81,23 +81,19 @@ void IRAM_ATTR task_test_change_clk_frq(void* params) {
     while (1) {
         // Simulate Wifi Loops for a bit
         for (int i = 0; i < 100; i++) {
-            RMTController.blockCallerWhileWritingBuffer();
             setCpuFrequencyMhz(80);
             delay(1);
 
-            RMTController.blockCallerWhileWritingBuffer();
             setCpuFrequencyMhz(80);
             delay(3);
 
-            RMTController.blockCallerWhileWritingBuffer();
             setCpuFrequencyMhz(10);
             delay(70);
         }
 
         // Simulate USB Plugged IN
-        RMTController.blockCallerWhileWritingBuffer();
         setCpuFrequencyMhz(160);
-        delay(10000);
+        delay(2000);
     }
 
     vTaskSuspend(NULL);

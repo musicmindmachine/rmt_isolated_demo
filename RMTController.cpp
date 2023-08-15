@@ -1,3 +1,4 @@
+#include "esp32-hal-cpu.h"
 #include "RMTController.h"
 
 #include "Arduino.h"
@@ -204,7 +205,11 @@ void IRAM_ATTR LEDGlovesRMTController::apb_change_CB(void* arg, apb_change_ev_t 
   // that will signal to reset the RMT clock divider on the next TX
 
   // Flag for eventual RMT clock freq update if we changed APB clock
-  if (ev_type == APB_AFTER_CHANGE) LEDGlovesRMTController::tx_should_reset_clk_div = true;
+  if (ev_type == APB_BEFORE_CHANGE) {
+    // RMTController.blockCallerWhileWritingBuffer();
+  } else if (ev_type == APB_AFTER_CHANGE) {
+    LEDGlovesRMTController::tx_should_reset_clk_div = true;
+  }
 }
 
 /**
